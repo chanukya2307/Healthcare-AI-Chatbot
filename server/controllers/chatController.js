@@ -83,3 +83,33 @@ export const chat = async (req, res) => {
     });
   }
 };
+
+export const getChatHistory = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+
+    if (!conversationId) {
+      return res.status(400).json({
+        message: "Conversation ID is required.",
+      });
+    }
+
+    const chatHistory = await ChatHistory.findOne({ conversationId });
+
+    if (!chatHistory) {
+      return res.status(404).json({
+        message: "Chat history not found.",
+      });
+    }
+
+    return res.status(200).json({
+      conversationId: chatHistory.conversationId,
+      history: chatHistory.messages,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch chat history.",
+      error: error.message,
+    });
+  }
+};

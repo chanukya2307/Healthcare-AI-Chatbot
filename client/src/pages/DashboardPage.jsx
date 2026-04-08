@@ -150,6 +150,7 @@ function UserDashboard() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loadingChat, setLoadingChat] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [conversationId, setConversationId] = useState("");
   const [appointments, setAppointments] = useState([]);
   const [hospitalAdmins, setHospitalAdmins] = useState([]);
@@ -165,6 +166,7 @@ function UserDashboard() {
   const endRef = useRef(null);
   const recognitionRef = useRef(null);
   const minAppointmentDateTime = getMinDateTimeValue();
+  const conversationStorageKey = "chatConversationId";
 
   const loadAppointments = async () => {
     try {
@@ -191,6 +193,43 @@ function UserDashboard() {
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  useEffect(() => {
+    const savedConversationId = localStorage.getItem(conversationStorageKey);
+
+    if (!savedConversationId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadChatHistory = async () => {
+      setLoadingHistory(true);
+
+      try {
+        const { data } = await api.get(`/chat/${savedConversationId}`);
+
+        if (isMounted) {
+          setConversationId(data.conversationId);
+          setMessages(normalizeHistory(data.history));
+        }
+      } catch {
+        if (isMounted) {
+          localStorage.removeItem(conversationStorageKey);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingHistory(false);
+        }
+      }
+    };
+
+    loadChatHistory();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -298,6 +337,7 @@ function UserDashboard() {
         conversationId: conversationId || undefined,
       });
       setConversationId(data.conversationId);
+      localStorage.setItem(conversationStorageKey, data.conversationId);
       setMessages(normalizeHistory(data.history));
     } catch {
       setMessages((prev) => [
@@ -370,6 +410,12 @@ function UserDashboard() {
             </div>
 
             <div className="flex-1 space-y-6 overflow-y-auto bg-slate-950/20 px-4 py-5 pr-3 sm:px-6">
+              {loadingHistory ? (
+                <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300 backdrop-blur">
+                  Loading previous conversation...
+                </div>
+              ) : null}
+
               {messages.map((msg, index) => (
                 <div
                   key={`${msg.role}-${msg.timestamp || index}-${index}`}
