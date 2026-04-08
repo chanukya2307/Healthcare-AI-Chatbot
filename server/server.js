@@ -11,9 +11,28 @@ import chatRoutes from "./routes/chatRoutes.js";
 dotenv.config();
 
 const app = express();
+const allowedOrigins = (process.env.CLIENT_URLS || process.env.CLIENT_URL || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow server-to-server calls and local tools with no Origin header.
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (!allowedOrigins.length || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
+  })
+);
 app.use(express.json());
 
 // Test route
@@ -26,6 +45,7 @@ app.use("/api/protected", protectedRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/chat", chatRoutes);
+
 
 // Connect MongoDB
 mongoose.connect(process.env.MONGO_URI)
